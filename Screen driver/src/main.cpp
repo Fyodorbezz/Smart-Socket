@@ -10,9 +10,7 @@
 #define SCR_WD   128
 #define SCR_HT   128
 
-#define TFT_CS 10
-#define TFT_DC  8
-#define TFT_RST 9
+
 
 #define DISPLAY 0
 
@@ -31,6 +29,21 @@
 #define DARK_YELLOW 0x04D3
 #define WHITE   0xFFFF
 #define ORANGE 0x041F
+
+#define PWR_LED 2
+#define ON_LED A0
+#define GRID_LED A1
+#define ERR_LED A2
+#define MAS_LED A3
+#define PER_LED A4
+#define APP_LED A5
+#define TFT_CS_PIN 10
+#define TFT_DC_PIN  8
+#define TFT_RST_PIN 9
+#define TFT_LED_PIN 3
+
+#define TEMP_SENS_PIN 9
+#define  TRIAC_TEMP_SENS_PIN A7
 
 
 Arduino_ST7735 tft = Arduino_ST7735(TFT_DC, TFT_RST, TFT_CS);
