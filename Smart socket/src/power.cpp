@@ -25,15 +25,6 @@ void zero_crossed(){
     debounce = millis();
     timee2 = micros();
   }
-  /*
-  if(croses==100){
-    freq=croses/((millis()-freq_time)/1000);
-    freq_time=millis();
-    croses=0;
-  }*/
-  
-  //Serial.println(micros()-timee2);
-  //timee2=micros();
 }
 
 void power_off(){

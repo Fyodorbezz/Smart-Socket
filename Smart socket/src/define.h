@@ -46,6 +46,18 @@
 
 #define TEMP_SENSOR_PIN 13
 
+#define CUR_SENSOR_PIN 34
+#define VOLTAGE_SENSOR_PIN 35
+#define BATERY_VOLTAGE_PIN 25
+#define ZERO_CROSS_PIN 27
+#define TRIAC_PIN 26
+#define NUTRAL_RELAY_PIN 32
+#define LINE_REALY_PIN 33
+#define FAN_PIN 14
+#define ATMEGA_RES_PIN 4
+#define CNCT_BTN_PIN 36
+#define PWR_BTN_PIN 39
+
 extern Adafruit_ST7735 tft;
 //extern TFT_ILI9163C tft;
 //extern Arduino_ST7789 tft;
