@@ -1,7 +1,7 @@
 #include <define.h>
 
 //TFT_ILI9163C tft = TFT_ILI9163C(__CS, __DC, __RST);
-Adafruit_ST7735 tft = Adafruit_ST7735(__CS, __DC, __RST);
+//Adafruit_ST7735 tft = Adafruit_ST7735(__CS, __DC, __RST);
 //Arduino_ST7789 tft = Arduino_ST7789(__DC, __RST);
 //TFT_eSPI tft = TFT_eSPI();
 OneWire oneWire(TEMP_SENSOR_PIN);   

@@ -46,7 +46,7 @@
 #define  TRIAC_TEMP_SENS_PIN A7
 
 
-Arduino_ST7735 tft = Arduino_ST7735(TFT_DC, TFT_RST, TFT_CS);
+Arduino_ST7735 tft = Arduino_ST7735(TFT_DC_PIN, TFT_RST_PIN, TFT_CS_PIN);
 MicroDS18B20<5> temp_sensor;
 SoftwareSerial data(6, 7); 
 
@@ -113,6 +113,8 @@ void loop() {
       data.println("Temp_sensor;" + String(temp_sensor.getTemp()));
     }
     temp_sensor.requestTemp();
+
+    data.println("Triac_temp;" + String(analogRead(TRIAC_TEMP_SENS_PIN)));
   }
 
   if (data.available()) {
@@ -182,10 +184,25 @@ void loop() {
       update_battery();
     }
     else if(message_split[0] == "On"){
-      digitalWrite(A0, message_split[1].toInt());
+      digitalWrite(ON_LED, message_split[1].toInt());
     }
     else if(message_split[0] == "Grid"){
-      digitalWrite(A1, message_split[1].toInt());
+      digitalWrite(GRID_LED, message_split[1].toInt());
+    }
+    else if(message_split[0] == "Pwr"){
+      analogWrite(PWR_LED, message_split[1].toInt());
+    }
+    else if(message_split[0] == "Err"){
+      digitalWrite(ERR_LED, message_split[1].toInt());
+    }
+    else if(message_split[0] == "App"){
+      digitalWrite(APP_LED, message_split[1].toInt());
+    }
+    else if(message_split[0] == "Mas"){
+      digitalWrite(MAS_LED, message_split[1].toInt());
+    }
+    else if(message_split[0] == "Per"){
+      digitalWrite(PER_LED, message_split[1].toInt());
     }
   }
 }

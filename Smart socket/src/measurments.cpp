@@ -1,6 +1,9 @@
 #include <define.h>
 
-void get_data(){
+Measurments current;
+Measurments voltage;
+
+/*void get_data(){
     for (int i=1; i<SAMPLE_LENGHT; i++){
         volts[i-1] = volts[i];
     }
@@ -10,60 +13,31 @@ void get_data(){
         amps[i-1] = amps[i];
     }
     amps[SAMPLE_LENGHT-1] = analogRead(34);
+
     count[0] ++;
     if(count[0] == 1250){
       bat_charge = analogRead(33);
       count[0] = 0;
     }
+}*/
+
+void get_data(){
+  voltage.raw_data[current.raw_data_count] = analogRead(34);
+  voltage.raw_data_count ++;
+
+  current.raw_data[current.raw_data_count] = analogRead(34);
+  current.raw_data_count ++;
 }
 
-void calculate_RMS(){  
-    for(int i=1; i < 5; i++){
-      rms_volts[i-1] = rms_volts[i];
-    }
-    rms_volts[4] = 0;
+void calculate_RMS(){
+  voltage.calculate_rms();
+  voltage.rms_data[4]*599.73;
 
-    unsigned long tmp_volts[100];
-    for(int i=0; i < SAMPLE_LENGHT; i++){
-      tmp_volts[i] = volts[i];
-    }
-    for(int i=0; i < SAMPLE_LENGHT; i++){
-      float tmp = compute_Volts(tmp_volts[i]);
-      rms_volts[4] += pow(tmp, 2);
-    }
-    rms_volts[4] = sqrt(rms_volts[4]/SAMPLE_LENGHT);
-    rms_volts[4] = rms_volts[4]*599.73;
-    
-    
-    for(int i=1; i < 5; i++){
-      rms_amps[i-1] = rms_amps[i];
-    }
-    rms_amps[4] = 0;
+  current.calculate_rms();
+  current.rms_data[4]*9.334;
+}
 
-    unsigned long tmp_amps[100];
-    for(int i=0; i < SAMPLE_LENGHT; i++){
-      tmp_amps[i] = amps[i];
-    }
-    //float prev = compute_Volts_2(tmp_amps[0]);
-    //unstable_load = false;
-    for(int i=0; i < SAMPLE_LENGHT; i++){
-      float tmp = compute_Volts_2(tmp_amps[i]);
-      //if (abs(tmp-prev)>0.2){
-        //unstable_load = true;
-      //}
-      //prev=tmp;
-      rms_amps[4] += pow(tmp, 2);
-      //Serial.println(tmp);
-      //Serial.println(zero_amp);
-      //Serial.print(',');
-      //Serial.print(compute_Volts_2(amps[i]));
-      //Serial.print(',');
-      //Serial.println(pow(compute_Volts_2(amps[i]), 2));
-    }   
-    rms_amps[4] = sqrt(rms_amps[4]/SAMPLE_LENGHT);
-    //Serial.println(millis());
-    rms_amps[4] = rms_amps[4]*9.334;
-    //Serial.println(rms_amps[4]);
+void calculate_RMS(){ 
     momental_amp=rms_amps[4];
     connected_to_grid_tmp = true;
     connected_to_grid = true;
@@ -74,34 +48,10 @@ void filter_RMS(){
     if(!connected_to_grid_tmp){
       connected_to_grid = 0;
     }
-    for(int i=1;i<5;i++){
-      rms_volt[i-1] = rms_volt[i];
-    }
-    for (int i=0; i<5; i++){
-      for (int j=0; j<5-i-1; j++){
-        if (rms_volts[j] > rms_volts[j+1]){
-          float tmp = rms_volts[j];
-          rms_volts[j] = rms_volts[j+1];
-          rms_volts[j+1] = tmp;
-        }
-      }
-    }
-    rms_volt[4] = rms_volts[2];
 
-    for(int i=1;i<5;i++){
-      rms_amp[i-1] = rms_amp[i];
-    }
-    count[1] = 0; 
-    for (int i=0; i<5; i++){
-      for (int j=0; j<5-i-1; j++){
-        if (rms_amps[j] > rms_amps[j+1]){
-          float tmp = rms_amps[j];
-          rms_amps[j] = rms_amps[j+1];
-          rms_amps[j+1] = tmp;
-        }
-      }
-    }
-    rms_amp[4] = rms_amps[2];
+    voltage.median_filter();
+    current.median_filter();
+
     momental_amp2 = rms_amps[2];
     connected_to_grid_tmp = false;
     count[2] ++;
@@ -111,25 +61,13 @@ void display_values(int time_pass){
 
   getLocalTime(&Time);
   if(connected_to_grid){
-    disp_volt = 0;
-    disp_amp = 0;
-    for (int i=0;i<5;i++){
-      disp_volt += rms_volt[i];
-      
-    }
-    disp_volt = disp_volt/5.0;
+    voltage.avg_filter();
+    current.avg_filter();
 
-    for (int i=0;i<5;i++){
-      disp_amp += rms_amp[i];
-    }
-    disp_amp = disp_amp/5.0;
-
-    if (disp_amp < 0.1){
-      disp_amp = 0;
-    }
+    wats = disp_amp * disp_volt;
+    watt_hours += wats/3600.0*(500.0/time_pass);
   }
-  wats = disp_amp * disp_volt;
-  watt_hours += wats/3600.0*(500.0/time_pass);
+  
   minute_awr_wats[59] += wats/120.0;
   minute_watts_hours[59] += (wats/3600.0*(500.0/time_pass))/120;
 

@@ -166,9 +166,9 @@ void parsePacket(AsyncUDPPacket packet){
           power_off();
         }
         if(message.substring(0, 9) == "Max power"){
-          cur_power = message.substring(9).toInt();
+          max_power = message.substring(9).toInt();
           if(power_status == 2){
-            max_power = cur_power;
+            cur_power = max_power;
           }
         }
         if(message.substring(0, 19) == "Clear power counter"){

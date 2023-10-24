@@ -1,5 +1,4 @@
 #define MODULE 0
-#define DISPLAY 1
 
 #include <Arduino.h>
 #include <WiFi.h>
@@ -8,7 +7,7 @@
 #include "time.h"
 //#include <Adafruit_GFX.h>
 //#include <TFT_ILI9163C.h>
-#include <Adafruit_ST7735.h>
+//#include <Adafruit_ST7735.h>
 #include "OneWire.h"
 #include "DallasTemperature.h"
 
@@ -58,7 +57,67 @@
 #define CNCT_BTN_PIN 36
 #define PWR_BTN_PIN 39
 
-extern Adafruit_ST7735 tft;
+struct Measurments{
+  unsigned int raw_data[100];
+  unsigned short raw_data_count=0;
+  float rms_data[5];
+  float rms_data_filtered[5];
+  float final_data=0;
+
+  void calculate_rms(){
+    for(int i=1; i < 5; i++){
+      rms_data[i-1] = rms_data[i];
+    }
+    rms_data[4] = 0;
+
+    unsigned long tmp_data[100];
+    for(int i=0; i < raw_data_count; i++){
+      tmp_data[i] = volts[i];
+    }
+    double data_sum=0;
+    for(int i=0; i < raw_data_count; i++){
+      float tmp = compute_Volts(tmp_data[i]);
+      data_sum += pow(tmp, 2);
+    }
+    rms_data[4] = sqrt(data_sum/raw_data_count);
+
+    raw_data_count = 0;
+  }
+
+  void median_filter(){
+    for(int i=1;i<5;i++){
+      rms_data_filtered[i-1] = rms_data_filtered[i];
+    }
+
+    for (int i=0; i<5; i++){
+      for (int j=0; j<5-i-1; j++){
+        if (rms_data[j] > rms_data[j+1]){
+          float tmp = rms_data[j];
+          rms_data[j] = rms_data[j+1];
+          rms_data[j+1] = tmp;
+        }
+      }
+    }
+
+    rms_data_filtered[4] = rms_data[2];
+  }
+
+  void avg_filter(){
+    final_data = 0;
+    for (int i=0;i<5;i++){
+      final_data += rms_data_filtered[i];
+    }
+    final_data = final_data/5.0;
+  }
+};
+
+//struct power_controll(){
+//  short power=0;
+//  short max_power=0;
+//
+//};
+
+//extern Adafruit_ST7735 tft;
 //extern TFT_ILI9163C tft;
 //extern Arduino_ST7789 tft;
 //extern TFT_eSPI tft;

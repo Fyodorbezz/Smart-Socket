@@ -122,7 +122,8 @@ void calculate_current_power_limit(){
       all_day_limit = i;
     }
     else{
-      if(compare_2_times(max_load[i][1], max_load[i][2], Time.tm_hour, Time.tm_min) && compare_2_times(Time.tm_hour, Time.tm_min, max_load[i][3], max_load[i][4]) && max_load[i][0] > max_time_power){
+      if(compare_2_times(max_load[i][1], max_load[i][2], Time.tm_hour, Time.tm_min) && 
+      compare_2_times(Time.tm_hour, Time.tm_min, max_load[i][3], max_load[i][4]) && max_load[i][0] > max_time_power){
         max_time_power = max_load[i][0];
         time_limit = i;
       }
