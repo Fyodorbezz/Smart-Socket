@@ -1,6 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
-             android:layout_width="match_parent"
-             android:layout_height="match_parent">
-
-</androidx.constraintlayout.widget.ConstraintLayout>
+<style name="ButtonStyle" parent="@android:style/Widget.Button">
+    <item name="android:layout_width">fill_parent</item>
+    <item name="android:textColor">@color/black</item>
+    <item name="android:textSize">15sp</item>
+    <item name="android:padding">10dp</item>
+    <item name="android:textStyle">bold</item>
+    <item name="android:background">@color/colorPrimary</item>
+    <item name="android:gravity">center</item>
+</style>

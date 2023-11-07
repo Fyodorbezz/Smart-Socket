@@ -100,10 +100,13 @@ void setup() {
   update_connection();
   update_name();
 
-  pinMode(A0, OUTPUT);
-  digitalWrite(A0, false);
-  pinMode(A1, OUTPUT);
-  digitalWrite(A1, false);
+  pinMode(ON_LED, OUTPUT);
+  pinMode(APP_LED, OUTPUT);
+  pinMode(ERR_LED, OUTPUT);
+  pinMode(MAS_LED, OUTPUT);
+  pinMode(PER_LED, OUTPUT);
+  pinMode(PWR_LED, OUTPUT);
+  pinMode(GRID_LED, OUTPUT);
 }
 
 void loop() {
@@ -140,7 +143,14 @@ void loop() {
         message_split[count] += message[i];
       }
     }
-    if(message_split[0] == "Parameters"){
+    if(message_split[0] == "LEDS"){
+      digitalWrite(GRID_LED, message_split[1].toInt());
+      digitalWrite(ERR_LED, message_split[2].toInt());
+      digitalWrite(MAS_LED, message_split[3].toInt());
+      digitalWrite(PER_LED, message_split[4].toInt());
+      digitalWrite(APP_LED, message_split[5].toInt());
+    }
+    else if(message_split[0] == "Parameters"){
       disp_volt = message_split[1].toFloat();
       disp_amp = message_split[2].toFloat();
       wats = message_split[3].toInt();
@@ -182,27 +192,6 @@ void loop() {
     else if(message_split[0] == "Battery"){
       bat_charge = message_split[1].toInt();
       update_battery();
-    }
-    else if(message_split[0] == "On"){
-      digitalWrite(ON_LED, message_split[1].toInt());
-    }
-    else if(message_split[0] == "Grid"){
-      digitalWrite(GRID_LED, message_split[1].toInt());
-    }
-    else if(message_split[0] == "Pwr"){
-      analogWrite(PWR_LED, message_split[1].toInt());
-    }
-    else if(message_split[0] == "Err"){
-      digitalWrite(ERR_LED, message_split[1].toInt());
-    }
-    else if(message_split[0] == "App"){
-      digitalWrite(APP_LED, message_split[1].toInt());
-    }
-    else if(message_split[0] == "Mas"){
-      digitalWrite(MAS_LED, message_split[1].toInt());
-    }
-    else if(message_split[0] == "Per"){
-      digitalWrite(PER_LED, message_split[1].toInt());
     }
   }
 }
@@ -394,6 +383,7 @@ void update_time(){
 }
 
 void update_power(){
+  analogWrite(PWR_LED, power);
   #if (DISPLAY == 0)
     int y = 78;
     if(btn_off){

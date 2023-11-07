@@ -2,18 +2,18 @@
 
 void setup() {
   Serial.println(getCpuFrequencyMhz());
-  pinMode(14, OUTPUT);
-  pinMode(12, OUTPUT);
-  pinMode(25, OUTPUT);
-  pinMode(4, OUTPUT);
-  pinMode(2, OUTPUT);
-  pinMode(32, OUTPUT);
+  pinMode(ATMEGA_RES_PIN, OUTPUT);
+  pinMode(NUTRAL_RELAY_PIN, OUTPUT);
+  pinMode(LINE_REALY_PIN, OUTPUT);
   pinMode(13, OUTPUT);
-  ledcSetup(0, 9000, 8);
-  ledcAttachPin(5, 0);
+
+
+  //adc1_config_width(ADC_WIDTH_BIT_12);
+  //adc1_config_channel_atten(ADC1_CHANNEL_6,ADC_ATTEN_MAX);
+  //adc1_config_channel_atten(ADC1_CHANNEL_7,ADC_ATTEN_MAX);
+
   ledcSetup(1, 100000, 8);
-  ledcAttachPin(14, 1);
-  digitalWrite(32, 1);
+  ledcAttachPin(FAN_PIN, 1);
 
   max_load[0][0] = 2000;
   max_load[0][1] = -1;
@@ -22,6 +22,7 @@ void setup() {
   Serial.begin(115200);
   Serial2.begin(2400);
   Serial2.setTimeout(50);
+
   Serial.println();
   Serial.println("Hello");
   WiFi.begin(ssid, pass);
@@ -40,54 +41,58 @@ void setup() {
   Serial.print("Local port: ");
   Serial.println(localPort);
   delay(1000);
+
   noInterrupts();
-  timer = timerBegin(0, 80, true);
-  timerAttachInterrupt(timer, &get_data, true);
-  timerAlarmWrite(timer, 400, true);
-  timerAlarmEnable(timer);
-  timer2 = timerBegin(1, 80, true);
-  timerAttachInterrupt(timer2, &Dim_ISR, true);
-  timerAlarmWrite(timer2, 200000, true);
-  timerAlarmEnable(timer2);
+  
   interrupts();
-  attachInterrupt(27, &zero_crossed, RISING);
-  pinMode(26, OUTPUT);
+
+  attachInterrupt(ZERO_CROSS_PIN, &zero_crossed, FALLING);
+  pinMode(TRIAC_PIN, OUTPUT);
+
   Serial.print("start");
   connect_btn.setTimeout(1000);
   connect_btn.isHolded();
   
-  digitalWrite(32, 0);
+  digitalWrite(NUTRAL_RELAY_PIN, 0);
+  digitalWrite(LINE_REALY_PIN, 0);
   Serial.println("start");
-  if(udp.listen(localPort)) {
-      udp.onPacket(parsePacket);
-  }
+  //if(udp.listen(localPort)) {
+  //    udp.onPacket(parsePacket);
+  //}
   Serial.println("start");
-  analogRead(35);
+  Serial.println(analogRead(VOLTAGE_SENSOR_PIN));
+  delay(1000);
+  Serial.println("a");
+  Serial.println(analogRead(CUR_SENSOR_PIN));
+  delay(1000);
   Serial.println("a");
   zero_volt = 0;
   zero_amp = 0;
   delay(1000);
   for(int i=0;i<512;i++){
-    zero_volt_tmp += round(compute_Volts(analogRead(35))*1000);
+    Serial.println("a");
+    zero_volt_tmp += round(compute_Volts(analogRead(VOLTAGE_SENSOR_PIN))*1000);
     delay(2);
-    zero_amp_tmp += round(compute_Volts_2(analogRead(34))*1000);
+    zero_amp_tmp += round(compute_Volts_2(analogRead(CUR_SENSOR_PIN))*1000);
     delay(2);
   }
   zero_volt = zero_volt_tmp / 512;
   zero_amp = zero_amp_tmp / 512;
+  Serial.println(zero_volt);
   #if (MODULE == 1)
     //zero_amp += 5;
   #endif
-  Serial.println(zero_amp);
+  //Serial.println(zero_amp);
   Serial.println("Time");
-  configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
-  getLocalTime(&Time);
+  //configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
+  //getLocalTime(&Time);
   last_minute = Time.tm_min;
   Serial.println("Time2");
-  digitalWrite(32, 1); 
+  digitalWrite(NUTRAL_RELAY_PIN, 1);
+  digitalWrite(LINE_REALY_PIN, 1); 
   Serial2.println("On;1");
   
-  temp_sensor.setResolution(11);
+  //temp_sensor.setResolution(11);
   
   #if (DISPLAY == 1)
     //tft.initR(INITR_BLACKTAB);
@@ -129,64 +134,57 @@ void setup() {
   delay(100);
   update_connection();
   delay(100);
+
+  noInterrupts();
+  timer = timerBegin(0, 80, true);
+  timerAttachInterrupt(timer, &get_data, true);
+  //timerAlarmWrite(timer, 120, true);
+  timerAlarmWrite(timer, 150, true);
+  timerAlarmEnable(timer);
+
+  timer2 = timerBegin(1, 80, true);
+  timerAttachInterrupt(timer2, &Dim_ISR, true);
+  timerAlarmWrite(timer2, 200000, true);
+  timerAlarmEnable(timer2);
+  interrupts();
   
 }
 
-void loop() {
-  butt1.tick();
-  connect_btn.tick();
+unsigned long long timeee = 0;
 
+
+void loop() {
+  //butt1.tick();
+  //connect_btn.tick();
+  //Serial.println(digitalRead(ZERO_CROSS_PIN));
   if(flag == 1){
+    //for(int i=0; i<voltage.raw_data_tmp_count; i+=2){
+    //  Serial.println(voltage.raw_data_tmp[i]);
+    //}
+    //Serial.println(0);
+    //Serial.println(voltage.raw_data_tmp_count);
+    //Serial.println(millis()-timeee);
+    timeee = millis();
     calculate_RMS();
+    //Serial.println(voltage.rms_data[0])
     flag = 0;
   }
-  if(millis() - display_val > 100){
+  if(sine_waves_count % 5 == 0){
     filter_RMS();
-    display_val = millis();
   }
-  if(millis() - display_val2 > 500){
+  if(sine_waves_count >= 50){
     display_values(millis() - display_val2);
+    Serial.println(millis() - display_val2);
+    //Serial.println(sine_waves_count);
+    sine_waves_count = 0;
     display_val2 = millis();
+    //update_leds();
   }
 
+  //power_controll.update();
+  //group_power.update();
 
-
-  if ((momental_amp >= 0.3 || momental_amp2 >= 0.2) && power_status == 0 && btn_off == 0){
-    if(!unstable_load){
-      power_status = 1;
-    }
-    send_start_signal = true;
-  }
-  if (disp_amp < 0.2 && power_status == 2 && millis() - current_debounce_time > CURRENT_DEBOUNCE_TIMEOUT && !controll_by_sensor){
-      Serial.println("Off");
-      power_status = 0;
-      if(unstable_load){
-        cur_power = 255;
-      }
-      else{
-        cur_power = 50;
-      }
-      send_stop_signal = true;
-      delay_before_off_time = millis();
-  }
-  if((role == 0 || role == 1)){
-    overload_wats = curent_max_load[0] - wats;
-  }
-  if ((role == 0 || role == 1) && wats > curent_max_load[0]){
-    if(unstable_load){
-      last_wats = wats;
-      power_off();
-      shut_by_overload = true;
-    }
-    overload = true;
-    //Serial.println("Overlimit"); 
-  }
-  else if(role == 0 || role == 1){
-    overload = false;
-  }
-
-
-  if(tasks == 0){
+  if(tasks == 22){
     if (connect_btn.isHolded()){
       Serial.println("hold");
       if (statuse == 0){
@@ -217,7 +215,7 @@ void loop() {
     if (statuse == 2 && millis() - ready_to_become_slave_time >= READY_TO_BECOME_SLAVE_TIMEOUT){
       statuse = 0;
       slave_led_blink = 0;
-      slave_led_state = 0;
+      periferal_led_state = 0;
     }
   }
   else if(tasks == 3){
@@ -244,7 +242,7 @@ void loop() {
   else if(tasks == 6){
     if (millis() - blink_time >= 500){
       if (slave_led_blink){
-        slave_led_state = !slave_led_state;
+        periferal_led_state = !periferal_led_state;
       }
       if (master_led_blink){
         master_led_state = !master_led_state;
@@ -253,22 +251,22 @@ void loop() {
     }
   }
   else if(tasks == 7){
-    if (send_start_signal && role == 1){
-      for (int i=0; i<slaves_number; i++){
+    if (power_controll.send_power_on_signal && role == 1){
+      for (int i=0; i<periferals_number; i++){
         String mes_str = "Smart socket master on" + String(wats);
-        send_data_over_UDP(mes_str, slaves_ip[i], localPort);
+        send_data_over_UDP(mes_str, perefirals_ip[i], localPort);
       }
-      send_start_signal = false;
+      power_controll.send_power_on_signal = false;
     }
   }
   else if(tasks == 8){
-    if (send_stop_signal && role == 1){
-      for (int i=0; i<slaves_number; i++){
-        udp.connect(slaves_ip[i], localPort);
+    if (power_controll.send_power_off_signal && role == 1){
+      for (int i=0; i<periferals_number; i++){
+        udp.connect(perefirals_ip[i], localPort);
         udp.broadcast("Smart socket master off");
       }
       udp.listen(localPort);
-      send_stop_signal = false;
+      power_controll.send_power_off_signal = false;
     }
   }
   else if(tasks == 9){
@@ -278,58 +276,35 @@ void loop() {
     }
   }
   else if(tasks == 10){
-    if ((millis() - speed_up_timer) >= speed_up_time/255.0 && power_status == 1){
-      if (cur_power < max_power){
-        cur_power++;
-      }
-      if (cur_power == max_power){
-        power_status = 2;
-      }
-      speed_up_timer = millis();
-    }
   }
   else if(tasks == 11){
-    if ((millis() - speed_up_timer) >= speed_up_time/255.0 && power_status == 3){
-      if (cur_power > 0){
-        cur_power--;
-      }
-      if (cur_power == 0){
-        power_status = 0;
-      }
-      speed_up_timer = millis();
-    }
+    
   }
   else if(tasks == 12){
     if (butt1.isClick()){
-    if(btn_off){
-      power_on();
-    }
-    else{
-      power_off();
-    }
-  }
-  }
-  else if(tasks == 13){
-    if(cur_power > max_power){ 
-      cur_power = max_power;
-      update_power();
-    }
-  }
-  else if(tasks == 14){
-    if(max_power > cur_power && !btn_off && power_status == 2){
-      power_status = 1;
+      Serial.println("jkj");
+      if(!power_controll.power_state){
+        power_controll.turn_on();
+      }
+      else{
+        power_controll.turn_off();
+      }
     }
   }
   else if(tasks == 15){
     if (butt1.isDouble()){
-      overvoltage = 0;
+      power_controll.overvoltage_state = 0;
+      if(connected_to_app){
+        uint8_t mes[] = "Smart socket normalvoltage";
+        udp.writeTo(mes, sizeof(mes), app_ip, localPort);
+      }
     }
   }
   else if(tasks == 16){
     if (!connected_to_grid){
-      disp_amp = 0;
-      disp_volt = 0;
-      cur_power = 0;
+      current.final_data = 0;
+      voltage.final_data = 0;
+      power_controll.cur_power = 0;
       momental_amp = 0;
     }
   }
@@ -341,21 +316,7 @@ void loop() {
       }
     }
   }
-  else if(tasks == 18){
-    if(to_stop && role == 2 && millis() - delay_before_off_time  > delay_before_off){
-      power_off();
-      to_stop = 0;
-    }
-    if(to_start && role == 2 && millis() - delay_before_on_time > delay_before_on && master_power>power_treshold){
-      power_on();
-      to_start = 0;
-    }
-  }
   else if(tasks == 19){
-    if(connected_to_grid != connected_to_grid_last){
-      Serial2.println("Grid;" + String(int(connected_to_grid)));
-      connected_to_grid_last = connected_to_grid;
-    }
   }
 
   //Serial.println("a");
@@ -380,16 +341,10 @@ void loop() {
   //Serial.println("v");
   //Serial.println("w");
   //Serial.println("x");
-  
-  digitalWrite(12, slave_led_state);
-  digitalWrite(25, overvoltage);
-  digitalWrite(4, master_led_state);
-  digitalWrite(2, connected_to_app);
-  ledcWrite(0, cur_power);
-  ledcWrite(1, connected_to_grid*250);
-  digitalWrite(32, !overvoltage);
 
-  tasks ++;
+  ledcWrite(1, (power_controll.cur_power>0)*230);
+
+  //tasks ++;
   if(tasks == 20){
     tasks = 0;
   }

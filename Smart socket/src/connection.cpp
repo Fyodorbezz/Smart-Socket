@@ -28,16 +28,16 @@ void send_consumption(){
 
 void change_role(int rolee){
   if (rolee == 0){
-    for (int i=0;i<slaves_number;i++){
-        slaves_ip[i].fromString("0.0.0.0");
+    for (int i=0;i<periferals_number;i++){
+        perefirals_ip[i].fromString("0.0.0.0");
     }
-    slaves_number = 0;
+    periferals_number = 0;
     master_led_blink = 1;
-    slave_led_state = 0;
+    periferal_led_state = 0;
     role = 0;
-    slave_led_state = 0;
+    periferal_led_state = 0;
     master_check = 0;
-    void send_role();
+    send_role();
   }
   else if(rolee == 1){
     role = 1;
@@ -46,8 +46,8 @@ void change_role(int rolee){
     statuse = 0;
     role = 2;
     slave_led_blink = 0;
-    slave_led_state = 1;
-    void send_role();
+    periferal_led_state = 1;
+    send_role();
   }
   update_connection();
   update_name();
@@ -74,7 +74,7 @@ void draw_grid(){
 }
 
 void update_parameters(){
-  Serial2.println("Parameters;" + String(disp_volt) + ";" + String(disp_amp) + ";" + String(wats) + ";" + String(watt_hours));
+  Serial2.println("Parameters;" + String(voltage.final_data) + ";" + String(current.final_data) + ";" + String(wats) + ";" + String(watt_hours));
 }
 
 void update_time(){
@@ -82,7 +82,7 @@ void update_time(){
 }
 
 void update_power(){
-  Serial2.println("Power;" + String(btn_off) + ";" + String(unstable_load) + ";" + String(cur_power));
+  Serial2.println("Power;" + String(power_controll.power_state) + ";" + String(power_controll.dimm_load) + ";" + String(power_controll.cur_power));
 }
 
 void update_load_limit(){
@@ -94,15 +94,18 @@ void update_load_limit(){
 }
 
 void update_overvoltage(){
-  Serial2.println("Voltage_limit;" + String(max_voltage));
+  Serial2.println("Voltage_limit;" + String(power_controll.overvoltage_value));
 }
 
 void update_connection(){
-  Serial2.println("Connection;" + String(role) + ";" + String(on_when_master_on) + ";" + String(delay_before_off));
+  Serial2.println("Connection;" + String(role) + ";" + String(group_power.power_on_timer.timer_period) + ";" + String(group_power.power_off_timer.timer_period));
 }
 
 void update_name(){
   Serial2.println("Name;" + String(name));
 }
 
-
+void update_leds(){
+  Serial2.println("LEDS;" + String(connected_to_grid) + ";" + String(power_controll.overvoltage_state) + ";" + 
+  String(master_led_state) + ";" + String(periferal_led_state) + ";" + String(connected_to_app));
+}

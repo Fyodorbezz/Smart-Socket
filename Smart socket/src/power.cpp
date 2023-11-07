@@ -1,75 +1,45 @@
 #include <define.h>
 
-void zero_crossed(){
-  if (millis()-debounce > 2){
-    croses++;
-    if (croses%2 == 0){
-      flag = 1;
-      
-    }
-    digitalWrite(26, 0);
-    time_till_open = 10000 - (cur_power/255.0)*10000;
-    
-    if(cur_power==255){
-      digitalWrite(26, 1);
+unsigned long long zero_crossed_debounce=0;
+bool sem_on=0;
+short zero_crosses_count=0;
+
+void IRAM_ATTR zero_crossed(){
+  if (millis()-zero_crossed_debounce > 2){
+    zero_crosses_count++;
+    flag = 1;
+    connected_to_grid = 1;
+    connected_to_grid_tmp = 1;
+    voltage.cache_data();
+    current.cache_data();
+
+    sine_waves_count ++;
+
+    digitalWrite(TRIAC_PIN, 0);
+    unsigned int time_till_open = 10000 - (power_controll.cur_power/255.0)*10000;
+    if(power_controll.cur_power==255){
+      digitalWrite(TRIAC_PIN, 1);
       sem_on = true;
-      timerAlarmWrite(timer2, 1000, false);
-      timerAlarmDisable(timer2);
+      //timerAlarmWrite(timer2, 1000, false);
+      //timerAlarmDisable(timer2);
     }
     else{
       sem_on = false;
-      timerAlarmWrite(timer2, time_till_open, true);
-      timerRestart(timer2);
-      timerAlarmEnable(timer2);
+      //timerAlarmWrite(timer2, time_till_open, true);
+      //timerRestart(timer2);
+      //timerAlarmEnable(timer2);
     }
-    debounce = millis();
-    timee2 = micros();
+    zero_crossed_debounce = millis();
   }
-}
-
-void power_off(){
-  if (unstable_load || disp_amp < 0.2){
-     power_status = 0;
-     cur_power = 0;
-  }
-  else{
-     power_status = 3;  
-  }
-  //send_stop_signal = true;
-  btn_off = true;
-  if(connected_to_app){
-    uint8_t mes[] = "Smart socket off";
-    udp.writeTo(mes, sizeof(mes), app_ip, localPort);
-  }
-  shut_by_overload = false;
-  update_power();
-}
-
-void power_on(){
-  if(unstable_load){
-    power_status = 2;
-    cur_power = 255;
-  }
-  else{
-    power_status = 0; 
-    cur_power = 50;
-  }
-  if(connected_to_app){
-    uint8_t mes[] = "Smart socket on";
-    udp.writeTo(mes, sizeof(mes), app_ip, localPort);
-  }
-  btn_off = false;
-  current_debounce_time = millis();
-  update_power();
 }
 
 void Dim_ISR(){
-  if (sem_on){
+  /*if (sem_on){
     digitalWrite(26, 0);
     sem_on = false;
   }
   else{  
-    if(cur_power != 0){
+    if(power_controll.cur_power != 0){
       digitalWrite(26, 1);
     }
     else{    
@@ -79,30 +49,9 @@ void Dim_ISR(){
     timerRestart(timer2);
     timerAlarmEnable(timer2);
     sem_on = true;
-  }
+  }*/
   
 }
-
-/*bool overload(int load){
-  bool output = false;
-  for(int i =0;i<max_loads_count;i++){
-    if(max_load[i][1] == -1){
-      //Serial.println(max_load[i][0]);
-      //Serial.println(load);
-      if(load>max_load[i][0]){
-        output = true;
-      }
-    }
-    else{
-      if(compare_2_times(max_load[i][1], max_load[i][2], Time.tm_hour, Time.tm_min) && compare_2_times(Time.tm_hour, Time.tm_min, max_load[i][3], max_load[i][4])){
-        if(load > max_load[i][0]){
-          output = true;
-        }
-      }
-    }
-  }
-  return output;
-}*/
 
 bool compare_2_times(int hour1, int min1, int hour2, int min2){
   if(hour2>hour1 || (hour1 == hour2 && min2>=min1)){

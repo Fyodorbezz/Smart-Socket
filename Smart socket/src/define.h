@@ -1,6 +1,7 @@
 #define MODULE 0
 
 #include <Arduino.h>
+#include <driver/adc.h>
 #include <WiFi.h>
 #include <AsyncUDP.h>
 #include "GyverButton.h"
@@ -57,66 +58,6 @@
 #define CNCT_BTN_PIN 36
 #define PWR_BTN_PIN 39
 
-struct Measurments{
-  unsigned int raw_data[100];
-  unsigned short raw_data_count=0;
-  float rms_data[5];
-  float rms_data_filtered[5];
-  float final_data=0;
-
-  void calculate_rms(){
-    for(int i=1; i < 5; i++){
-      rms_data[i-1] = rms_data[i];
-    }
-    rms_data[4] = 0;
-
-    unsigned long tmp_data[100];
-    for(int i=0; i < raw_data_count; i++){
-      tmp_data[i] = volts[i];
-    }
-    double data_sum=0;
-    for(int i=0; i < raw_data_count; i++){
-      float tmp = compute_Volts(tmp_data[i]);
-      data_sum += pow(tmp, 2);
-    }
-    rms_data[4] = sqrt(data_sum/raw_data_count);
-
-    raw_data_count = 0;
-  }
-
-  void median_filter(){
-    for(int i=1;i<5;i++){
-      rms_data_filtered[i-1] = rms_data_filtered[i];
-    }
-
-    for (int i=0; i<5; i++){
-      for (int j=0; j<5-i-1; j++){
-        if (rms_data[j] > rms_data[j+1]){
-          float tmp = rms_data[j];
-          rms_data[j] = rms_data[j+1];
-          rms_data[j+1] = tmp;
-        }
-      }
-    }
-
-    rms_data_filtered[4] = rms_data[2];
-  }
-
-  void avg_filter(){
-    final_data = 0;
-    for (int i=0;i<5;i++){
-      final_data += rms_data_filtered[i];
-    }
-    final_data = final_data/5.0;
-  }
-};
-
-//struct power_controll(){
-//  short power=0;
-//  short max_power=0;
-//
-//};
-
 //extern Adafruit_ST7735 tft;
 //extern TFT_ILI9163C tft;
 //extern Arduino_ST7789 tft;
@@ -162,6 +103,7 @@ extern float minute_awr_wats[60];
 extern float minute_watts_hours[60];
 extern int last_minute;
 extern int last_second;
+extern short sine_waves_count;
 //----------------------------
 
 //-----power regulation-------
@@ -170,11 +112,7 @@ extern int cur_power;
 extern int last_powere;
 extern int max_power;
 extern bool vol_on_output; 
-extern unsigned long speed_up_timer; 
-extern unsigned long time_till_open;
-extern unsigned long time_till_open_last;
-extern unsigned long debounce;
-extern bool sem_on;
+extern unsigned long power_change_timer; 
 extern bool overload;
 extern int overload_wats;
 extern bool shut_by_overload;
@@ -191,13 +129,14 @@ extern int load_err_last;
 extern unsigned long int slave_search_time;
 extern unsigned long int ready_to_become_slave_time;
 extern unsigned long int master_online_time;
-extern IPAddress slaves_ip[10];
-extern String slaves_name[10];
+extern IPAddress perefirals_ip[10];
+extern String perefirals_name[10];
+extern short pereferals_load[10];
 extern IPAddress master_ip;
 extern String master_name;
-extern short slaves_number;
+extern short periferals_number;
 extern IPAddress app_ip;
-extern bool slave_led_state;
+extern bool periferal_led_state;
 extern bool master_led_state;
 extern unsigned long int blink_time;
 extern bool slave_led_blink;
@@ -250,9 +189,6 @@ extern unsigned long display_val;
 extern unsigned long display_val2;
 extern unsigned long timee2;
 extern unsigned long value0, value1;
-extern int croses;
-extern unsigned long freq_time;
-extern float freq;
 extern bool overvoltage;
 extern int max_voltage;
 extern int bat_charge;
@@ -277,14 +213,12 @@ extern float temperature_KP;
 extern float temperature_KD;
 extern float temperature_KI;
 
-extern int count[4];
-
-//extern unsigned long count;
-extern boolean flag; 
-
+extern bool flag; 
 extern int tasks;
 
-extern bool flage;
+extern unsigned long long timere;
+extern unsigned int dur;
+//extern int raw_data_count;
 
 void parsePacket(AsyncUDPPacket packet);
 void send_data_over_UDP(String mes_str, IPAddress ip,int localPort);
@@ -315,3 +249,311 @@ void update_load_limit();
 void update_overvoltage();
 void update_connection();
 void update_name();
+void update_leds();
+
+struct Mil_Timer{
+  unsigned long long timer_counter=0;
+  unsigned int timer_period=0;
+  bool timer_started = 0;
+
+  Mil_Timer(){}
+
+  Mil_Timer(unsigned long long period){
+    timer_period = period;
+  }
+
+  void set_period(unsigned long long period){
+    timer_period = period;
+  }
+
+  void restart(){
+    timer_counter=millis();
+    timer_started = 1;
+  }
+
+  bool is_started(){
+    timer_started = !((millis()-timer_counter) > timer_period);
+    return timer_started;
+  }
+
+  bool is_ready(){
+    timer_started = !((millis()-timer_counter) > timer_period);
+    return (millis()-timer_counter) > timer_period;
+  }
+
+};
+
+struct PID{
+  float kP = 0.5;
+  float kD = 2;
+  float kI = 0.5;
+
+  float last_error = 0;
+  float integral_sum = 0;
+
+  int get_result(int error){
+    float P = error * kP;
+    float D = (error - last_error) * kD;
+    float I = integral_sum * kI;
+    last_error = error;
+    integral_sum += error;
+    if (integral_sum > 1000){
+      integral_sum = 1000;
+    }
+    if (integral_sum < -1000){
+      integral_sum = -1000;
+    }
+    return int(P+D+I+0.5);
+  }
+  
+};
+
+struct Measurments{
+private:
+  
+
+public:
+
+  unsigned int raw_data[200];
+  float rms_data[5];
+  float rms_data_filtered[5];
+  float final_data=0;
+  short peek_value=0;
+  int raw_data_count=0;
+
+  unsigned int raw_data_tmp[200];
+  int raw_data_tmp_count=0;
+
+  void cache_data(){
+    for(int i=0; i < raw_data_count; i++){
+      raw_data_tmp[i] = raw_data[i];
+    }
+    raw_data_tmp_count = raw_data_count;
+    raw_data_count = 0;
+  }
+
+  void calculate_rms(){
+    for(int i=1; i < 5; i++){
+      rms_data[i-1] = rms_data[i];
+    }
+    rms_data[4] = 0;
+    double data_sum=0;
+    for(int i=0; i < raw_data_tmp_count; i++){
+      float tmp = compute_Volts(raw_data_tmp[i]);
+      //Serial.print(raw_data_tmp[i]);
+      //Serial.print(" ");
+      //Serial.print(zero_volt);
+      //Serial.print(" ");
+      //Serial.println(tmp);
+      data_sum += tmp*tmp;
+    }
+    rms_data[4] = sqrt(data_sum/raw_data_tmp_count);
+    //Serial.println(rms_data[4]);
+    //Serial.println(" ");
+  }
+
+  void median_filter(){
+    for(int i=1;i<5;i++){
+      rms_data_filtered[i-1] = rms_data_filtered[i];
+    }
+
+    for (int i=0; i<5; i++){
+      for (int j=0; j<5-i-1; j++){
+        if (rms_data[j] > rms_data[j+1]){
+          float tmp = rms_data[j];
+          rms_data[j] = rms_data[j+1];
+          rms_data[j+1] = tmp;
+        }
+      }
+    }
+
+    rms_data_filtered[4] = rms_data[2];
+  }
+
+  void avg_filter(){
+    final_data = 0;
+    for (int i=0;i<5;i++){
+      final_data += rms_data_filtered[i];
+    }
+    final_data = final_data/5.0;
+  }
+};
+
+extern Measurments current;
+extern Measurments voltage;
+
+struct Power_controll{
+  private:
+
+  bool load_connected=0;
+  Mil_Timer power_change_timer = Mil_Timer(speed_up_time/255.0);
+  Mil_Timer zero_current_timer = Mil_Timer(CURRENT_DEBOUNCE_TIMEOUT);
+  short cur_power_last = 0;
+  short target_power=0;
+
+  public:
+
+  short cur_power=0;
+  short max_power=255;
+  bool power_state=0;
+  //0-off
+  //1-on
+  bool overload = 0;
+  bool dimm_load=0; // is load dimmerable?
+  
+  short overvoltage_value=0;
+  bool overvoltage_state=0;
+
+  bool send_power_on_signal=0;
+  bool send_power_off_signal=0;
+
+  void turn_on(){
+    power_state = 1;
+    load_connected = 1;
+    send_power_on_signal = true;
+
+    if(connected_to_app){
+      uint8_t mes[] = "Smart socket on";
+      udp.writeTo(mes, sizeof(mes), app_ip, localPort);
+    }
+
+    if(dimm_load){
+      target_power = max_power;
+      return;
+    }
+    cur_power = 255;
+    target_power = 255;
+  }
+
+  void turn_off(){
+    power_state = 0;
+    overload = 0;
+    send_power_off_signal = true;
+
+    if(connected_to_app){
+      uint8_t mes[] = "Smart socket off";
+      udp.writeTo(mes, sizeof(mes), app_ip, localPort);
+    }
+
+    if(dimm_load){
+      target_power = 0;
+      return;
+    }
+    cur_power = 0;
+    target_power = 0;
+  }
+
+  void update(){
+    digitalWrite(LINE_REALY_PIN, !overvoltage_value);
+    digitalWrite(NUTRAL_RELAY_PIN, !overvoltage_value);
+
+    if(voltage.peek_value > overvoltage_value){
+      overvoltage_state=1;
+      if(connected_to_app){
+        uint8_t mes[] = "Smart socket overvoltage";
+        udp.writeTo(mes, sizeof(mes), app_ip, localPort);
+      }
+    }
+
+    if(load_connected && power_state && dimm_load){
+      target_power = max_power;
+    }
+
+    if (power_change_timer.is_ready()){
+      if(cur_power != target_power && load_connected){
+        if (target_power > cur_power){
+          cur_power ++;
+        }
+        else if(target_power < cur_power){
+          cur_power--;
+        }
+      }
+      power_change_timer.restart();
+    }
+
+    if ((momental_amp >= 0.3 || momental_amp2 >= 0.2) && dimm_load && !load_connected){
+      load_connected = 1;
+      send_power_on_signal = true;
+    }
+
+    if (current.final_data < 0.1 && cur_power == target_power && load_connected && power_state && !zero_current_timer.is_started()){
+      zero_current_timer.restart();
+    }
+
+    if (current.final_data < 0.1 && cur_power == target_power && zero_current_timer.is_ready() && load_connected && power_state){
+      load_connected = 0;
+      if (dimm_load){
+        target_power = 50;
+        cur_power = 50;
+      }
+      send_power_off_signal = true;
+    }
+
+    if(cur_power != cur_power_last){
+      if(connected_to_app){
+        String mes = "Smart socket power" + String(cur_power);
+        send_data_over_UDP(mes, app_ip, localPort);
+      }
+      update_power();
+      cur_power_last = cur_power;
+    }
+  }
+};
+
+extern Power_controll power_controll;
+
+struct Group_power{
+  int power_trashold;
+  bool on_order;
+  bool off_order;
+  //short role = 0;
+  short power_limit = 0;
+  short power_before_overload = 0;
+  short max_power = 0;
+
+  Mil_Timer power_on_timer;
+  Mil_Timer power_off_timer;
+
+  PID load_limiter;
+
+  void limit_power(){
+    if(wats > power_limit || max_power > power_controll.max_power && power_controll.dimm_load){
+      power_controll.max_power = 255 - load_limiter.get_result(power_limit - wats);
+      if(power_controll.max_power > max_power){
+        power_controll.max_power = max_power;
+      }
+      if(connected_to_app){
+        uint8_t mes[] = "Smart socket overload";
+        udp.writeTo(mes, sizeof(mes), app_ip, localPort);
+      }
+    }
+  }
+
+  void update(){
+    if(off_order && role == 2 && power_off_timer.is_ready()){
+      power_controll.turn_off();
+      off_order = 0;
+    }
+    if(on_order && role == 2 && power_on_timer.is_ready()){
+      power_controll.turn_on();
+      off_order = 0;
+    }
+
+    if(power_limit > wats && !power_controll.dimm_load){
+      power_before_overload = wats;
+      power_controll.turn_off();
+      if(connected_to_app){
+        uint8_t mes[] = "Smart socket overload";
+        udp.writeTo(mes, sizeof(mes), app_ip, localPort);
+      }
+      power_controll.overload = 1;
+    }
+
+    if(power_limit < power_before_overload && power_controll.overload && !power_controll.dimm_load){
+      power_controll.turn_on();
+      power_controll.overload = 0;
+    }
+  }
+};
+
+extern Group_power group_power;
