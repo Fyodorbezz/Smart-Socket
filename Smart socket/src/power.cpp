@@ -20,21 +20,21 @@ void IRAM_ATTR zero_crossed(){
     if(power_controll.cur_power==255){
       digitalWrite(TRIAC_PIN, 1);
       sem_on = true;
-      //timerAlarmWrite(timer2, 1000, false);
-      //timerAlarmDisable(timer2);
+      timerAlarmWrite(timer2, 1000, false);
+      timerAlarmDisable(timer2);
     }
     else{
       sem_on = false;
-      //timerAlarmWrite(timer2, time_till_open, true);
-      //timerRestart(timer2);
-      //timerAlarmEnable(timer2);
+      timerAlarmWrite(timer2, time_till_open, true);
+      timerRestart(timer2);
+      timerAlarmEnable(timer2);
     }
     zero_crossed_debounce = millis();
   }
 }
 
 void Dim_ISR(){
-  /*if (sem_on){
+  if (sem_on){
     digitalWrite(26, 0);
     sem_on = false;
   }
@@ -49,7 +49,7 @@ void Dim_ISR(){
     timerRestart(timer2);
     timerAlarmEnable(timer2);
     sem_on = true;
-  }*/
+  }
   
 }
 

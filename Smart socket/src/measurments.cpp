@@ -5,7 +5,7 @@ bool cur_vol_flag = 0;
 void IRAM_ATTR get_data(){
   if(!cur_vol_flag){
     voltage.raw_data[voltage.raw_data_count++] = analogRead(VOLTAGE_SENSOR_PIN);
-    voltage.peek_value = compute_Volts(voltage.raw_data[voltage.raw_data_count-1]) * 172.683;
+    peek_voltage = int(abs(0.937*voltage.raw_data[voltage.raw_data_count] - zero_amp)* 0.086316+0.5);
     if(voltage.raw_data_count == 199){
       voltage.raw_data_count = 0;
     }
@@ -21,19 +21,18 @@ void IRAM_ATTR get_data(){
 
 void calculate_RMS(){
   //if(!connected_to_grid_tmp){
-  //  connected_to_grid = 0;
-  //  return;
+    //  connected_to_grid = 0;
+    //  return;
   //}
   connected_to_grid_tmp = 0;
   
   voltage.calculate_rms();
-  voltage.rms_data[4]*=122.087;
+  voltage.rms_data[4] *= 814.811;
 
   current.calculate_rms();
   current.rms_data[4]*=9.334;
 
   momental_amp=current.rms_data[4];
-  
 }
 
 void filter_RMS(){
@@ -54,8 +53,9 @@ void display_values(int time_pass){
     voltage.avg_filter();
     current.avg_filter();
 
-    if (voltage.final_data < 10){
-      connected_to_grid = 0;
+    current.final_data -= 0.05;
+    if(current.final_data < 0.03){
+      current.final_data = 0;
     }
 
     wats = current.final_data * voltage.final_data;
@@ -158,8 +158,11 @@ void display_values(int time_pass){
 
 float compute_Volts(float data){
     #if (MODULE == 0)
-      float tmp = (0.801*data)+127;
-      return abs(tmp - zero_amp)/1000.0; 
+      float tmp = 0.937*data;
+      //float tmp = (0.801*data) + 127;
+      return tmp;
+      //float tmp = (0.801*data) + 127;
+      //return abs(tmp - zero_volt)/1000.0; 
     #else
       float tmp = (0.796*data)+93;
       return abs(tmp-zero_volt)/1000.0;
@@ -169,7 +172,7 @@ float compute_Volts(float data){
 
 float compute_Volts_2(float data){
     #if (MODULE == 0) 
-      float tmp = (0.801*data)+127;
+      float tmp = 0.937*data;
       return abs(tmp - zero_amp)/1000.0; 
     #else
       float tmp = (0.796*data)+121;

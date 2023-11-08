@@ -28,9 +28,9 @@ GButton butt1(PWR_BTN_PIN);
 
 //---------Mesurments---------
 unsigned long zero_volt = 1653;
-unsigned long zero_volt_tmp = 0;
+unsigned long long zero_volt_tmp = 0;
 unsigned long zero_amp = 1295;
-unsigned long zero_amp_tmp = 0;
+unsigned long long zero_amp_tmp = 0;
 float momental_amp = 0;
 float momental_amp2 = 0;
 int wats=0;
@@ -40,6 +40,7 @@ float minute_watts_hours[60];
 int last_minute = 0;
 int last_second = 0;
 short sine_waves_count = 0;
+volatile int peek_voltage = 0;
 //----------------------------
 unsigned long speed_up_time = 3000;
 //----------------------------

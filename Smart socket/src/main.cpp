@@ -1,6 +1,7 @@
 #include <define.h>
 
 void setup() {
+  noInterrupts();
   Serial.println(getCpuFrequencyMhz());
   pinMode(ATMEGA_RES_PIN, OUTPUT);
   pinMode(NUTRAL_RELAY_PIN, OUTPUT);
@@ -19,7 +20,7 @@ void setup() {
   max_load[0][1] = -1;
   max_load[0][5] = 1;
 
-  Serial.begin(115200);
+  Serial.begin(500000);
   Serial2.begin(2400);
   Serial2.setTimeout(50);
 
@@ -42,11 +43,7 @@ void setup() {
   Serial.println(localPort);
   delay(1000);
 
-  noInterrupts();
   
-  interrupts();
-
-  attachInterrupt(ZERO_CROSS_PIN, &zero_crossed, FALLING);
   pinMode(TRIAC_PIN, OUTPUT);
 
   Serial.print("start");
@@ -56,53 +53,21 @@ void setup() {
   digitalWrite(NUTRAL_RELAY_PIN, 0);
   digitalWrite(LINE_REALY_PIN, 0);
   Serial.println("start");
-  //if(udp.listen(localPort)) {
-  //    udp.onPacket(parsePacket);
-  //}
-  Serial.println("start");
-  Serial.println(analogRead(VOLTAGE_SENSOR_PIN));
-  delay(1000);
-  Serial.println("a");
-  Serial.println(analogRead(CUR_SENSOR_PIN));
-  delay(1000);
-  Serial.println("a");
-  zero_volt = 0;
-  zero_amp = 0;
-  delay(1000);
-  for(int i=0;i<512;i++){
-    Serial.println("a");
-    zero_volt_tmp += round(compute_Volts(analogRead(VOLTAGE_SENSOR_PIN))*1000);
-    delay(2);
-    zero_amp_tmp += round(compute_Volts_2(analogRead(CUR_SENSOR_PIN))*1000);
-    delay(2);
+  if(udp.listen(localPort)) {
+      udp.onPacket(parsePacket);
   }
-  zero_volt = zero_volt_tmp / 512;
-  zero_amp = zero_amp_tmp / 512;
-  Serial.println(zero_volt);
-  #if (MODULE == 1)
-    //zero_amp += 5;
-  #endif
-  //Serial.println(zero_amp);
+  Serial.println("start");
+  
+
   Serial.println("Time");
-  //configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
-  //getLocalTime(&Time);
+  configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
+  getLocalTime(&Time);
   last_minute = Time.tm_min;
   Serial.println("Time2");
-  digitalWrite(NUTRAL_RELAY_PIN, 1);
-  digitalWrite(LINE_REALY_PIN, 1); 
+  
   Serial2.println("On;1");
   
   //temp_sensor.setResolution(11);
-  
-  #if (DISPLAY == 1)
-    //tft.initR(INITR_BLACKTAB);
-    //tft.fillScreen(BLACK);
-    //tft.setTextColor(BLACK);
-    //tft.setRotation(2);
-    
-    
-  #endif
-  
  
   Serial.println(getCpuFrequencyMhz());
 
@@ -114,7 +79,7 @@ void setup() {
   //max_load[1][5] = 2;
   //max_loads_count ++;
 
-  calculate_current_power_limit();
+  //calculate_current_power_limit();
 
   delay(100);
   digitalWrite(13, 1);
@@ -135,7 +100,31 @@ void setup() {
   update_connection();
   delay(100);
 
-  noInterrupts();
+  digitalWrite(NUTRAL_RELAY_PIN, 1);
+  digitalWrite(LINE_REALY_PIN, 1); 
+
+  Serial.println(analogRead(VOLTAGE_SENSOR_PIN));
+  Serial.println(analogRead(CUR_SENSOR_PIN));
+  zero_volt = 0;
+  zero_amp = 0;
+  //delay(1000);
+  for(int i=0;i<4096;i++){
+    zero_volt_tmp += analogRead(VOLTAGE_SENSOR_PIN);
+    //delay(1);
+    zero_amp_tmp += analogRead(CUR_SENSOR_PIN);
+    //delay(1);
+  }
+  zero_volt_tmp = int(zero_volt_tmp / 4096.0 + 0.5);
+  Serial.println(zero_volt_tmp);
+  voltage.zero_value = compute_Volts(zero_volt_tmp);
+  Serial.println(voltage.zero_value);
+
+  zero_amp_tmp = int(zero_amp_tmp / 4096.0 + 0.5);
+  Serial.println(zero_amp_tmp);
+  current.zero_value = compute_Volts_2(zero_amp_tmp)*1000;
+  Serial.println(current.zero_value);
+
+  
   timer = timerBegin(0, 80, true);
   timerAttachInterrupt(timer, &get_data, true);
   //timerAlarmWrite(timer, 120, true);
@@ -146,6 +135,8 @@ void setup() {
   timerAttachInterrupt(timer2, &Dim_ISR, true);
   timerAlarmWrite(timer2, 200000, true);
   timerAlarmEnable(timer2);
+
+  attachInterrupt(ZERO_CROSS_PIN, &zero_crossed, FALLING);
   interrupts();
   
 }
@@ -158,33 +149,34 @@ void loop() {
   //connect_btn.tick();
   //Serial.println(digitalRead(ZERO_CROSS_PIN));
   if(flag == 1){
-    //for(int i=0; i<voltage.raw_data_tmp_count; i+=2){
-    //  Serial.println(voltage.raw_data_tmp[i]);
-    //}
+    for(int i=0; i<voltage.raw_data_tmp_count; i+=2){
+      //Serial.print("0,");
+      //Serial.println(voltage.raw_data_tmp[i]);
+    }
     //Serial.println(0);
     //Serial.println(voltage.raw_data_tmp_count);
     //Serial.println(millis()-timeee);
     timeee = millis();
     calculate_RMS();
-    //Serial.println(voltage.rms_data[0])
+    //Serial.println(voltage.rms_data[0]);
     flag = 0;
   }
   if(sine_waves_count % 5 == 0){
     filter_RMS();
   }
-  if(sine_waves_count >= 50){
+  if(sine_waves_count >= 25){
     display_values(millis() - display_val2);
     Serial.println(millis() - display_val2);
     //Serial.println(sine_waves_count);
     sine_waves_count = 0;
     display_val2 = millis();
-    //update_leds();
+    update_leds();
   }
 
   //power_controll.update();
   //group_power.update();
 
-  if(tasks == 22){
+  if(tasks == 0){
     if (connect_btn.isHolded()){
       Serial.println("hold");
       if (statuse == 0){

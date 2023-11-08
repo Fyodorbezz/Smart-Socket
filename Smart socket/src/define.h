@@ -91,9 +91,9 @@ extern float rms_amp[10];
 extern float disp_volt;
 extern float disp_amp;
 extern unsigned long zero_volt;
-extern unsigned long zero_volt_tmp;
+extern unsigned long long zero_volt_tmp;
 extern unsigned long zero_amp;
-extern unsigned long zero_amp_tmp;
+extern unsigned long long zero_amp_tmp;
 extern float momental_amp;
 extern float momental_amp2;
 extern unsigned int current_debounce_time;
@@ -104,6 +104,7 @@ extern float minute_watts_hours[60];
 extern int last_minute;
 extern int last_second;
 extern short sine_waves_count;
+extern volatile int peek_voltage;
 //----------------------------
 
 //-----power regulation-------
@@ -314,22 +315,35 @@ private:
 
 public:
 
-  unsigned int raw_data[200];
+  int raw_data[200];
   float rms_data[5];
   float rms_data_filtered[5];
   float final_data=0;
-  short peek_value=0;
+  float peek_value=0;
   int raw_data_count=0;
 
-  unsigned int raw_data_tmp[200];
+  int raw_data_tmp[200];
   int raw_data_tmp_count=0;
+  float zero_value = 0;
 
   void cache_data(){
-    for(int i=0; i < raw_data_count; i++){
-      raw_data_tmp[i] = raw_data[i];
+    noInterrupts();
+    raw_data_tmp[0] = raw_data[0];
+    raw_data_tmp[1] = raw_data[1];
+    int last_diff = abs(raw_data[1] - raw_data[0]);
+    int shift = 0;
+    for(int i=1; i < raw_data_count; i++){
+      if(abs(last_diff - abs(raw_data[i] - raw_data[i-1])) >= 40){
+        last_diff = abs(raw_data[i] - raw_data[i-1]);
+        shift++;
+        continue;
+      }
+      last_diff = abs(raw_data[i] - raw_data[i-1]);
+      raw_data_tmp[i-shift] = raw_data[i];
     }
-    raw_data_tmp_count = raw_data_count;
+    raw_data_tmp_count = raw_data_count-shift;
     raw_data_count = 0;
+    interrupts();
   }
 
   void calculate_rms(){
@@ -338,18 +352,14 @@ public:
     }
     rms_data[4] = 0;
     double data_sum=0;
+    double tmp = 0;
     for(int i=0; i < raw_data_tmp_count; i++){
-      float tmp = compute_Volts(raw_data_tmp[i]);
-      //Serial.print(raw_data_tmp[i]);
-      //Serial.print(" ");
-      //Serial.print(zero_volt);
-      //Serial.print(" ");
-      //Serial.println(tmp);
-      data_sum += tmp*tmp;
+      tmp = abs(compute_Volts(raw_data_tmp[i])-zero_value)/1000;
+      //Serial.println(raw_data_tmp[i]);
+      data_sum += (tmp*tmp);
     }
     rms_data[4] = sqrt(data_sum/raw_data_tmp_count);
     //Serial.println(rms_data[4]);
-    //Serial.println(" ");
   }
 
   void median_filter(){
@@ -447,7 +457,7 @@ struct Power_controll{
     digitalWrite(LINE_REALY_PIN, !overvoltage_value);
     digitalWrite(NUTRAL_RELAY_PIN, !overvoltage_value);
 
-    if(voltage.peek_value > overvoltage_value){
+    if(peek_voltage > overvoltage_value){
       overvoltage_state=1;
       if(connected_to_app){
         uint8_t mes[] = "Smart socket overvoltage";
